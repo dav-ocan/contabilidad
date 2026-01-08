@@ -198,8 +198,8 @@ def upsert_salario_data(data: Dict[str, str]) -> bool:
     header_map = _get_header_map(header)
     cedula_col = header_map.get("CEDULA") or header_map.get("RUC")
     persona_col = header_map.get("PERSONA")
-    if not cedula_col or not persona_col:
-        raise RuntimeError("Data sheet must include CEDULA (or RUC) and PERSONA columns.")
+    if not persona_col:
+        raise RuntimeError("Data sheet must include PERSONA column.")
 
     cedula_value = data.get("cedula", "").strip()
     persona_value = data.get("persona", "").strip()
@@ -207,46 +207,28 @@ def upsert_salario_data(data: Dict[str, str]) -> bool:
         raise RuntimeError("Persona is required.")
 
     data_start_row = header_row + 1
-    target_row = _find_row_by_value(sheet, persona_col, persona_value, data_start_row)
-
-    if target_row:
-        row = sheet.row_values(target_row)
-        if len(row) < len(header):
-            row += [""] * (len(header) - len(row))
-        existing_cedula = row[cedula_col - 1].strip() if len(row) >= cedula_col else ""
-        if existing_cedula:
-            cedula_value = existing_cedula
-        elif cedula_value:
-            row[cedula_col - 1] = cedula_value
-        else:
-            raise RuntimeError("Cedula is required for new persona.")
-        _set_if_present(row, header_map, ["PERSONA"], persona_value)
-        _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
-        _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
-        _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
-        _set_if_present(row, header_map, ["SALDO_INICIAL"], data.get("saldo_inicial", ""))
-        _set_if_present(row, header_map, ["ENTRADA_BANCO"], data.get("entrada_banco", ""))
-        _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
-    else:
+    if cedula_col:
+        if not cedula_value:
+            existing_row = _find_row_by_value(sheet, persona_col, persona_value, data_start_row)
+            if existing_row:
+                existing = sheet.row_values(existing_row)
+                if len(existing) >= cedula_col:
+                    cedula_value = str(existing[cedula_col - 1]).strip()
         if not cedula_value:
             raise RuntimeError("Cedula is required for new persona.")
-        target_row = _find_row_by_value(sheet, cedula_col, cedula_value, data_start_row)
-        if target_row:
-            row = sheet.row_values(target_row)
-            if len(row) < len(header):
-                row += [""] * (len(header) - len(row))
-        else:
-            row = [""] * len(header)
-            target_row = len(sheet.get_all_values()) + 1
-        row[cedula_col - 1] = cedula_value
-        _set_if_present(row, header_map, ["PERSONA"], persona_value)
-        _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
-        _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
-        _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
-        _set_if_present(row, header_map, ["SALDO_INICIAL"], data.get("saldo_inicial", ""))
-        _set_if_present(row, header_map, ["ENTRADA_BANCO"], data.get("entrada_banco", ""))
-        _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
 
+    row = [""] * len(header)
+    if cedula_col:
+        row[cedula_col - 1] = cedula_value
+    _set_if_present(row, header_map, ["PERSONA"], persona_value)
+    _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
+    _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
+    _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
+    _set_if_present(row, header_map, ["SALDO_INICIAL"], data.get("saldo_inicial", ""))
+    _set_if_present(row, header_map, ["ENTRADA_BANCO"], data.get("entrada_banco", ""))
+    _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
+
+    target_row = len(sheet.get_all_values()) + 1
     start_cell = rowcol_to_a1(target_row, 1)
     end_cell = rowcol_to_a1(target_row, len(header))
     sheet.update(f"{start_cell}:{end_cell}", [row])
