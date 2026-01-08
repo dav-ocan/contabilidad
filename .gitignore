@@ -134,3 +134,4 @@ node_modules/
 *.xlsx
 lll.json
 html/
+.env
