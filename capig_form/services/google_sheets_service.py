@@ -1,5 +1,4 @@
-﻿# -*- coding: utf-8 -*-
-import json
+# -*- coding: utf-8 -*-
 import logging
 import re
 import traceback
@@ -9,6 +8,8 @@ from django.conf import settings
 from google.oauth2.service_account import Credentials
 from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 
+from capig_form.services.google_credentials import load_service_account_info
+
 try:
     from googleapiclient.errors import HttpError
 except ImportError:  # optional dependency
@@ -17,45 +18,22 @@ except ImportError:  # optional dependency
 logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-REQUIRED_SERVICE_FIELDS = {"private_key", "client_email", "project_id"}
+
 
 def _print_utf8(message):
     print(str(message).encode("utf-8", errors="replace").decode("utf-8"))
 
-def _load_service_account_info():
-    try:
-        raw_service = settings.SERVICE
-    except AttributeError as exc:
-        logger.exception("SERVICE is not defined in settings.")
-        raise RuntimeError("SERVICE is not configured in settings.py") from exc
-
-    try:
-        info = json.loads(raw_service)
-    except json.JSONDecodeError as exc:
-        logger.exception("SERVICE JSON is invalid.")
-        raise RuntimeError("SERVICE JSON is malformed. Check .env") from exc
-    except Exception as exc:
-        logger.exception("Unexpected error parsing SERVICE.")
-        raise RuntimeError("Could not parse SERVICE from .env") from exc
-
-    missing = [field for field in REQUIRED_SERVICE_FIELDS if not info.get(field)]
-    if missing:
-        message = f"Missing required fields in SERVICE: {missing}"
-        logger.error(message)
-        raise RuntimeError(message)
-
-    return info
-
-SERVICE_ACCOUNT_INFO = _load_service_account_info()
 
 def _get_client():
     try:
-        creds = Credentials.from_service_account_info(SERVICE_ACCOUNT_INFO, scopes=SCOPES)
+        info = load_service_account_info(settings.SERVICE)
+        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
         return gspread.authorize(creds)
     except Exception as exc:
         logger.exception("Error authenticating with Google Sheets.")
         _print_utf8(traceback.format_exc())
         raise RuntimeError("Could not authenticate with Google Sheets.") from exc
+
 
 def get_google_sheet(sheet_id, worksheet_name):
     try:
@@ -98,6 +76,7 @@ def get_google_sheet(sheet_id, worksheet_name):
         _print_utf8(traceback.format_exc())
         raise
 
+
 def insert_row_to_sheet(sheet_id, worksheet_name, data):
     try:
         sheet = get_google_sheet(sheet_id, worksheet_name)
@@ -121,6 +100,7 @@ def insert_row_to_sheet(sheet_id, worksheet_name, data):
         _print_utf8(traceback.format_exc())
         return False
 
+
 def update_sheet_with_dataframe(sheet_id, worksheet_name, df):
     try:
         sheet = get_google_sheet(sheet_id, worksheet_name)
@@ -135,6 +115,7 @@ def update_sheet_with_dataframe(sheet_id, worksheet_name, df):
         logger.exception("Error updating sheet with DataFrame.")
         _print_utf8(traceback.format_exc())
         return False
+
 
 def get_column_data(sheet_id, worksheet_index=0, column="A", start_row=2):
     try:

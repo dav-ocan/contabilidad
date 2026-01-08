@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 import logging
 import os
 from datetime import datetime
@@ -11,42 +10,16 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
 from googleapiclient.errors import HttpError
 
+from capig_form.services.google_credentials import load_service_account_info
+
 logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-REQUIRED_SERVICE_FIELDS = {"private_key", "client_email", "project_id"}
-
-
-def _load_service_account_info():
-    try:
-        raw_service = settings.SERVICE
-    except AttributeError as exc:
-        logger.exception("SERVICE is not defined in settings.")
-        raise RuntimeError("SERVICE is not configured in settings.py") from exc
-
-    try:
-        info = json.loads(raw_service)
-    except json.JSONDecodeError as exc:
-        logger.exception("SERVICE JSON is invalid.")
-        raise RuntimeError("SERVICE JSON is malformed. Check .env") from exc
-    except Exception as exc:
-        logger.exception("Unexpected error parsing SERVICE.")
-        raise RuntimeError("Could not parse SERVICE from .env") from exc
-
-    missing = [field for field in REQUIRED_SERVICE_FIELDS if not info.get(field)]
-    if missing:
-        message = f"Missing required fields in SERVICE: {missing}"
-        logger.error(message)
-        raise RuntimeError(message)
-
-    return info
-
-
-SERVICE_ACCOUNT_INFO = _load_service_account_info()
 
 
 def _get_drive_service():
-    creds = Credentials.from_service_account_info(SERVICE_ACCOUNT_INFO, scopes=SCOPES)
+    info = load_service_account_info(settings.SERVICE)
+    creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     return build("drive", "v3", credentials=creds)
 
 
