@@ -222,6 +222,7 @@ def actualizar_salario_view(request):
         trabajo_1_raw = request.POST.get("trabajo_1", "").strip()
         trabajo_2_raw = request.POST.get("trabajo_2", "").strip()
         salario_raw = request.POST.get("salario", "").strip()
+        saldo_inicial_raw = request.POST.get("saldo_inicial", "").strip()
         mes = _clean_text(request.POST.get("mes", ""))
 
         if persona and not cedula:
@@ -251,6 +252,14 @@ def actualizar_salario_view(request):
             messages.error(request, "Salario tiene un formato invalido.")
             return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})
 
+        saldo_inicial = ""
+        if saldo_inicial_raw:
+            try:
+                saldo_inicial = _format_currency(saldo_inicial_raw)
+            except ValueError:
+                messages.error(request, "Saldo inicial tiene un formato invalido.")
+                return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})
+
         try:
             upsert_salario_data({
                 "cedula": cedula,
@@ -258,6 +267,7 @@ def actualizar_salario_view(request):
                 "trabajo_1": trabajo_1,
                 "trabajo_2": trabajo_2,
                 "salario": salario,
+                "saldo_inicial": saldo_inicial,
                 "mes": mes,
             })
             return render(request, "success_afiliado.html")

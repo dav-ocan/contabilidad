@@ -224,6 +224,7 @@ def upsert_salario_data(data: Dict[str, str]) -> bool:
         _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
         _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
         _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
+        _set_if_present(row, header_map, ["SALDO_INICIAL"], data.get("saldo_inicial", ""))
         _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
     else:
         if not cedula_value:
@@ -241,6 +242,7 @@ def upsert_salario_data(data: Dict[str, str]) -> bool:
         _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
         _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
         _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
+        _set_if_present(row, header_map, ["SALDO_INICIAL"], data.get("saldo_inicial", ""))
         _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
 
     start_cell = rowcol_to_a1(target_row, 1)
