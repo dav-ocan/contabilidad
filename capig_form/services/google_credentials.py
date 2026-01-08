@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from functools import lru_cache
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ def _looks_like_path(value: str) -> bool:
 
 
 @lru_cache(maxsize=1)
-def load_service_account_info(raw_service: str | None) -> dict:
+def load_service_account_info(raw_service: Optional[str]) -> dict:
     raw_service = _strip_wrapping_quotes(raw_service or "")
     if not raw_service:
         raw_service = _strip_wrapping_quotes(
