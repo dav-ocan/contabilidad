@@ -1,0 +1,249 @@
+﻿import os
+from typing import Dict, List
+
+from django.conf import settings
+from gspread.utils import rowcol_to_a1
+
+from capig_form.services.google_sheets_service import get_google_sheet
+
+ALT_ID_KEYS = {
+    "ID_UNICO",
+    "ID_INTERNO",
+    "ID",
+    "ID_SOCIO",
+    "CODIGO_SOCIO",
+    "CODIGO",
+    "CLAVE",
+    "CLAVE_UNICA",
+    "NO",
+    "NO.",
+    "NRO",
+    "NUM",
+    "NUMERO",
+}
+
+TRANSLITERATION = str.maketrans(
+    {
+        "\u00c1": "A",
+        "\u00c9": "E",
+        "\u00cd": "I",
+        "\u00d3": "O",
+        "\u00da": "U",
+        "\u00dc": "U",
+        "\u00d1": "N",
+        "\u00c0": "A",
+        "\u00c8": "E",
+        "\u00cc": "I",
+        "\u00d2": "O",
+        "\u00d9": "U",
+        "\u00c2": "A",
+        "\u00ca": "E",
+        "\u00ce": "I",
+        "\u00d4": "O",
+        "\u00db": "U",
+        "\u00b0": "",
+    }
+)
+
+def _normalize(col: str) -> str:
+    col = "_".join(col.strip().upper().split())
+    col = col.translate(TRANSLITERATION)
+    return col
+
+def _build_fila(header: List[str], data: Dict[str, str]) -> List[str]:
+    filas = []
+    for col in header:
+        key = _normalize(col)
+        if key in {"FECHA_DEL_REGISTRO", "FECHA_DE_REGISTRO", "FECHA_REGISTRO", "FECHA"}:
+            filas.append(data.get("fecha_registro", ""))
+        elif key in {"FECHA_DEL_GASTO", "FECHA_DE_GASTO", "FECHA_DE_GASTOS", "FECHA_GASTO", "FECHA_GASTOS"}:
+            filas.append(data.get("fecha_gasto", ""))
+        elif key in {"PERSONA_QUE_GASTO", "PERSONA_GASTO", "PERSONA"}:
+            filas.append(data.get("persona_gasto", ""))
+        elif key == "SALARIO":
+            filas.append(data.get("salario", ""))
+        elif key == "MONTO":
+            filas.append(data.get("monto", ""))
+        elif key in {"CATEGORIA_DE_GASTO", "CATEGORIA_GASTO", "CATEGORIA"}:
+            filas.append(data.get("categoria_gasto", ""))
+        elif key == "SUBCATEGORIA":
+            filas.append(data.get("subcategoria", ""))
+        elif key in {"METODO_DE_PAGO", "METODO_PAGO", "FORMA_DE_PAGO"}:
+            filas.append(data.get("metodo_pago", ""))
+        elif key in {"CUOTA_MENSUAL", "CUOTA"}:
+            filas.append(data.get("cuota_mensual", ""))
+        elif key == "METODO_DE_PAGO_CUOTA_MENSUAL":
+            metodo = data.get("metodo_pago", "")
+            cuota = data.get("cuota_mensual", "")
+            if metodo and cuota:
+                filas.append(f"{metodo} | cuota: {cuota}")
+            else:
+                filas.append(metodo)
+        elif key in {"DESCRIPCION_O_DETALLE", "DESCRIPCION", "DETALLE"}:
+            filas.append(data.get("descripcion", ""))
+        elif key == "FRECUENCIA":
+            filas.append(data.get("frecuencia", ""))
+        elif key == "COMPROBANTE":
+            filas.append(data.get("comprobante", ""))
+        elif key in ALT_ID_KEYS:
+            filas.append(data.get("_id_autoinc", ""))
+        else:
+            filas.append("")
+    return filas
+
+def guardar_nuevo_afiliado_en_google_sheets(data: Dict[str, str]) -> bool:
+    sheet_id = os.getenv("SHEET_PATH") or getattr(settings, "SHEET_PATH", "")
+    if not sheet_id:
+        raise RuntimeError("SHEET_PATH is not configured.")
+
+    sheet = get_google_sheet(sheet_id, "cuentas")
+
+    header_row = 1
+    data_start_row = header_row + 1
+    header = sheet.row_values(header_row)
+
+    id_col_index = None
+    for idx, col in enumerate(header):
+        if _normalize(col) in ALT_ID_KEYS:
+            id_col_index = idx + 1
+            break
+
+    next_id = ""
+    if id_col_index:
+        col_values = sheet.col_values(id_col_index)
+        existing_ids: List[int] = []
+        for raw in col_values[data_start_row - 1:]:
+            try:
+                existing_ids.append(int(str(raw).strip()))
+            except (TypeError, ValueError):
+                continue
+        next_id = str(max(existing_ids) + 1) if existing_ids else "1"
+    data["_id_autoinc"] = next_id
+
+    fila = _build_fila(header, data)
+
+    next_row = len(sheet.get_all_values()) + 1
+    start_cell = rowcol_to_a1(next_row, 1)
+    end_cell = rowcol_to_a1(next_row, len(header))
+    sheet.update(f"{start_cell}:{end_cell}", [fila])
+    return True
+
+
+def _get_header_map(header: List[str]) -> Dict[str, int]:
+    return {_normalize(col): idx + 1 for idx, col in enumerate(header)}
+
+
+def _set_if_present(row: List[str], header_map: Dict[str, int], keys: List[str], value: str):
+    for key in keys:
+        col_index = header_map.get(key)
+        if col_index:
+            row[col_index - 1] = value
+            return
+
+
+def _normalize_value(value: str) -> str:
+    return str(value or "").strip().lower()
+
+
+def _find_row_by_value(sheet, col_index: int, value: str, start_row: int) -> int:
+    if not col_index or not value:
+        return 0
+    values = sheet.col_values(col_index)
+    target = _normalize_value(value)
+    for idx, raw in enumerate(values[start_row - 1 :], start=start_row):
+        if _normalize_value(raw) == target:
+            return idx
+    return 0
+
+
+def get_cedula_for_persona(persona: str) -> str:
+    sheet_id = os.getenv("SHEET_PATH") or getattr(settings, "SHEET_PATH", "")
+    if not sheet_id:
+        raise RuntimeError("SHEET_PATH is not configured.")
+
+    sheet = get_google_sheet(sheet_id, "Data")
+    header_row = 1
+    header = sheet.row_values(header_row)
+    if not header:
+        return ""
+
+    header_map = _get_header_map(header)
+    persona_col = header_map.get("PERSONA")
+    cedula_col = header_map.get("CEDULA") or header_map.get("RUC")
+    if not persona_col or not cedula_col:
+        return ""
+
+    data_start_row = header_row + 1
+    target_row = _find_row_by_value(sheet, persona_col, persona, data_start_row)
+    if not target_row:
+        return ""
+
+    row = sheet.row_values(target_row)
+    if len(row) < cedula_col:
+        return ""
+    return str(row[cedula_col - 1]).strip()
+
+
+def upsert_salario_data(data: Dict[str, str]) -> bool:
+    sheet_id = os.getenv("SHEET_PATH") or getattr(settings, "SHEET_PATH", "")
+    if not sheet_id:
+        raise RuntimeError("SHEET_PATH is not configured.")
+
+    sheet = get_google_sheet(sheet_id, "Data")
+    header_row = 1
+    header = sheet.row_values(header_row)
+    if not header:
+        raise RuntimeError("Data sheet has no headers.")
+
+    header_map = _get_header_map(header)
+    cedula_col = header_map.get("CEDULA") or header_map.get("RUC")
+    persona_col = header_map.get("PERSONA")
+    if not cedula_col or not persona_col:
+        raise RuntimeError("Data sheet must include CEDULA (or RUC) and PERSONA columns.")
+
+    cedula_value = data.get("cedula", "").strip()
+    persona_value = data.get("persona", "").strip()
+    if not persona_value:
+        raise RuntimeError("Persona is required.")
+
+    data_start_row = header_row + 1
+    target_row = _find_row_by_value(sheet, persona_col, persona_value, data_start_row)
+
+    if target_row:
+        row = sheet.row_values(target_row)
+        if len(row) < len(header):
+            row += [""] * (len(header) - len(row))
+        existing_cedula = row[cedula_col - 1].strip() if len(row) >= cedula_col else ""
+        if existing_cedula:
+            cedula_value = existing_cedula
+        elif cedula_value:
+            row[cedula_col - 1] = cedula_value
+        else:
+            raise RuntimeError("Cedula is required for new persona.")
+        _set_if_present(row, header_map, ["PERSONA"], persona_value)
+        _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
+        _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
+        _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
+        _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
+    else:
+        if not cedula_value:
+            raise RuntimeError("Cedula is required for new persona.")
+        target_row = _find_row_by_value(sheet, cedula_col, cedula_value, data_start_row)
+        if target_row:
+            row = sheet.row_values(target_row)
+            if len(row) < len(header):
+                row += [""] * (len(header) - len(row))
+        else:
+            row = [""] * len(header)
+            target_row = len(sheet.get_all_values()) + 1
+        row[cedula_col - 1] = cedula_value
+        _set_if_present(row, header_map, ["PERSONA"], persona_value)
+        _set_if_present(row, header_map, ["TRABAJO_1"], data.get("trabajo_1", ""))
+        _set_if_present(row, header_map, ["TRABAJO_2"], data.get("trabajo_2", ""))
+        _set_if_present(row, header_map, ["SALARIO"], data.get("salario", ""))
+        _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
+
+    start_cell = rowcol_to_a1(target_row, 1)
+    end_cell = rowcol_to_a1(target_row, len(header))
+    sheet.update(f"{start_cell}:{end_cell}", [row])
+    return True

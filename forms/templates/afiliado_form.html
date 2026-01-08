@@ -1,0 +1,199 @@
+﻿{% extends "layout.html" %}
+
+{% block content %}
+<div class="content-body">
+    <div class="content-actions">
+        <a href="{% url 'forms:dashboard' %}" class="btn-back">&larr; Volver al Dashboard</a>
+    </div>
+
+    <h2 class="content-title">Registro de gasto</h2>
+    <p class="content-subtitle">Complete la informacion para registrar un gasto</p>
+
+    <form method="post" action="{% url 'forms:nuevo_afiliado' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="mb-4">
+            <label class="form-label">Fecha de registro</label>
+            <input type="date" name="fecha_registro" class="form-control" value="{{ fecha_registro }}" readonly>
+        </div>
+
+        <div id="gastos-container">
+            <div class="gasto-entry">
+                <div class="mb-4">
+                    <label class="form-label">Fecha de gasto <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_gasto" class="form-control" value="{{ fecha_gasto }}" data-default-value="{{ fecha_gasto }}" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Persona que gasto <span class="text-danger">*</span></label>
+                    <select name="persona_gasto" class="form-select" required>
+                        <option value="">Seleccione una persona</option>
+                        {% for persona in personas %}
+                            <option value="{{ persona }}">{{ persona }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Monto <span class="text-danger">*</span></label>
+                    <input type="number" name="monto" class="form-control" min="0" step="0.01" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Categoria de gasto <span class="text-danger">*</span></label>
+                    <select class="form-select categoria-select" name="categoria_gasto" required>
+                        <option value="">Seleccione una categoria</option>
+                        <option value="Alimentacion">Alimentacion</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Tramites">Tramites</option>
+                        <option value="Servicios">Servicios</option>
+                        <option value="Educacion">Educacion</option>
+                        <option value="Salud">Salud</option>
+                        <option value="Entretenimiento">Entretenimiento</option>
+                        <option value="Vivienda">Vivienda</option>
+                        <option value="Fijo">Fijo</option>
+                        <option value="Prestamo">Prestamo</option>
+                        <option value="Ahorro / inversion">Ahorro / inversion</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+
+                <div class="mb-4 categoria-otro-group" style="display: none;">
+                    <label class="form-label">Categoria personalizada <span class="text-danger">*</span></label>
+                    <input type="text" name="categoria_otro" class="form-control categoria-otro-input">
+                </div>
+
+                <div class="mb-4 subcategoria-group" style="display: none;">
+                    <label class="form-label">Subcategoria <span class="text-danger">*</span></label>
+                    <input type="text" name="subcategoria" class="form-control subcategoria-input" placeholder="Ej: supermercado, gasolina, consulta medica">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Metodo de pago <span class="text-danger">*</span></label>
+                    <select class="form-select metodo-select" name="metodo_pago" required>
+                        <option value="">Seleccione un metodo</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                    </select>
+                </div>
+
+                <div class="mb-4 cuota-group" style="display: none;">
+                    <label class="form-label">Cuota mensual</label>
+                    <input type="number" name="cuota_mensual" class="form-control cuota-input" min="0" step="0.01">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Descripcion o detalle</label>
+                    <textarea name="descripcion" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Frecuencia</label>
+                    <input type="text" name="frecuencia" class="form-control" placeholder="Ej: mensual, semanal">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Comprobante (archivo)</label>
+                    <input type="file" name="comprobante" class="form-control" accept="image/*,application/pdf">
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <button type="button" class="btn btn-outline-secondary w-100" id="add-gasto">Registrar otro gasto</button>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Registrar gasto</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        const container = document.getElementById("gastos-container");
+        const addButton = document.getElementById("add-gasto");
+
+        function setupEntry(entry) {
+            const categoriaSelect = entry.querySelector(".categoria-select");
+            const subcategoriaGroup = entry.querySelector(".subcategoria-group");
+            const subcategoriaInput = entry.querySelector(".subcategoria-input");
+            const categoriaOtroGroup = entry.querySelector(".categoria-otro-group");
+            const categoriaOtroInput = entry.querySelector(".categoria-otro-input");
+
+            const metodoSelect = entry.querySelector(".metodo-select");
+            const cuotaGroup = entry.querySelector(".cuota-group");
+            const cuotaInput = entry.querySelector(".cuota-input");
+
+            function updateCategoria() {
+                const value = categoriaSelect.value;
+                const isOtros = value === "Otros";
+                const hasCategoria = value !== "";
+
+                categoriaOtroGroup.style.display = isOtros ? "block" : "none";
+                categoriaOtroInput.required = isOtros;
+
+                const showSubcategoria = hasCategoria && !isOtros;
+                subcategoriaGroup.style.display = showSubcategoria ? "block" : "none";
+                subcategoriaInput.required = showSubcategoria;
+
+                if (!showSubcategoria) {
+                    subcategoriaInput.value = "";
+                }
+                if (!isOtros) {
+                    categoriaOtroInput.value = "";
+                }
+            }
+
+            function updateMetodo() {
+                const isTarjeta = metodoSelect.value === "Tarjeta";
+                cuotaGroup.style.display = isTarjeta ? "block" : "none";
+                cuotaInput.required = isTarjeta;
+
+                if (!isTarjeta) {
+                    cuotaInput.value = "";
+                }
+            }
+
+            categoriaSelect.addEventListener("change", updateCategoria);
+            metodoSelect.addEventListener("change", updateMetodo);
+            updateCategoria();
+            updateMetodo();
+        }
+
+        function resetEntry(entry) {
+            entry.querySelectorAll("input, select, textarea").forEach((field) => {
+                if (field.type === "file") {
+                    field.value = "";
+                    return;
+                }
+                if (field.tagName.toLowerCase() === "select") {
+                    field.value = "";
+                    return;
+                }
+                if (field.type === "date") {
+                    field.value = field.dataset.defaultValue || "";
+                    return;
+                }
+                field.value = "";
+            });
+        }
+
+        function addEntry() {
+            const firstEntry = container.querySelector(".gasto-entry");
+            if (!firstEntry) {
+                return;
+            }
+            const clone = firstEntry.cloneNode(true);
+            resetEntry(clone);
+            container.appendChild(clone);
+            setupEntry(clone);
+        }
+
+        container.querySelectorAll(".gasto-entry").forEach(setupEntry);
+        addButton.addEventListener("click", addEntry);
+    })();
+</script>
+{% endblock %}

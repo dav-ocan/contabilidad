@@ -1,0 +1,91 @@
+﻿{% extends "layout.html" %}
+{% load static %}
+
+{% block title %}Inicio - Desarrollo gastos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .home-wrap { display: flex; flex-direction: column; gap: 26px; }
+    .home-hero { text-align: center; padding: 18px 10px 0; }
+    .logo-frame {
+        background: #0b0b0f;
+        border-radius: 18px;
+        padding: 24px 16px;
+        width: min(100%, 420px);
+        margin: 0 auto 18px;
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+    }
+    .home-logo {
+        max-width: 260px;
+        width: min(70%, 260px);
+        height: auto;
+        margin: 0 auto;
+        display: block;
+        filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.45));
+    }
+    .home-title { color: #264591; font-size: 34px; font-weight: 800; margin-bottom: 8px; }
+    .home-subtitle { color: #6c757d; font-size: 16px; margin: 0; }
+
+    .home-actions { display: grid; gap: 16px; }
+    .action-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 22px;
+        text-decoration: none;
+        display: grid;
+        gap: 6px;
+        transition: all 0.25s ease;
+    }
+    .action-card:hover {
+        border-color: #264591;
+        background: #ffffff;
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px rgba(38, 69, 145, 0.18);
+    }
+    .action-title { color: #264591; font-size: 20px; font-weight: 700; margin: 0; }
+    .action-description { color: #666; font-size: 14px; margin: 0; }
+    .action-cta { color: #264591; font-weight: 600; font-size: 14px; }
+
+    .home-shell {
+        background: linear-gradient(180deg, rgba(38, 69, 145, 0.06), rgba(255, 255, 255, 0));
+        border: 1px solid #eef2f7;
+        border-radius: 20px;
+        padding: 24px;
+    }
+
+    @media (min-width: 768px) {
+        .home-title { font-size: 40px; }
+        .home-shell { padding: 30px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body">
+    <div class="home-shell">
+        <div class="home-wrap">
+            <div class="home-hero">
+                <div class="logo-frame">
+                    <img src="{% static 'forms/heindal_blanco_Mesa-de-trabajo-1-copia.png' %}" alt="Heindal" class="home-logo">
+                </div>
+                <h1 class="home-title">Bienvenido</h1>
+                <p class="home-subtitle">Seleccione una opcion para comenzar</p>
+            </div>
+
+            <div class="home-actions">
+                <a href="{% url 'forms:nuevo_afiliado' %}" class="action-card">
+                    <h3 class="action-title">Registro de gasto</h3>
+                    <p class="action-description">Registre nuevos gastos en el sistema</p>
+                    <span class="action-cta">Abrir formulario &rarr;</span>
+                </a>
+                <a href="{% url 'forms:actualizar_salario' %}" class="action-card">
+                    <h3 class="action-title">Actualizar estado salario</h3>
+                    <p class="action-description">Actualice mes y salario por persona</p>
+                    <span class="action-cta">Abrir formulario &rarr;</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

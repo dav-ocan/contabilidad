@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="content-body">
+    <div class="content-actions">
+        <a href="{% url 'forms:dashboard' %}" class="btn-back">&larr; Volver al Dashboard</a>
+    </div>
+
+    <h2 class="content-title">Actualizar estado salario</h2>
+    <p class="content-subtitle">Registre la cedula una sola vez y actualice mes y salario</p>
+
+    <form method="post" action="{% url 'forms:actualizar_salario' %}">
+        {% csrf_token %}
+
+        <div class="mb-4">
+            <label class="form-label">Cedula <span class="text-danger">*</span></label>
+            <input type="text" name="cedula" class="form-control" required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Persona <span class="text-danger">*</span></label>
+            <select name="persona" class="form-select" required>
+                <option value="">Seleccione una persona</option>
+                {% for persona in personas %}
+                    <option value="{{ persona }}">{{ persona }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Trabajo 1</label>
+            <input type="number" name="trabajo_1" class="form-control" min="0" step="0.01" placeholder="Monto del trabajo 1">
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Trabajo 2</label>
+            <input type="number" name="trabajo_2" class="form-control" min="0" step="0.01" placeholder="Monto del trabajo 2">
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Salario <span class="text-danger">*</span></label>
+            <input type="number" name="salario" class="form-control" min="0" step="0.01" required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Mes <span class="text-danger">*</span></label>
+            <select name="mes" class="form-select" required>
+                <option value="">Seleccione un mes</option>
+                {% for mes in meses %}
+                    <option value="{{ mes }}">{{ mes }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        const personaSelect = document.querySelector('select[name="persona"]');
+        const cedulaInput = document.querySelector('input[name="cedula"]');
+        if (!personaSelect || !cedulaInput) {
+            return;
+        }
+
+        const lookupUrl = "{% url 'forms:cedula_por_persona' %}";
+
+        function setCedula(value, isLocked) {
+            cedulaInput.value = value || "";
+            cedulaInput.readOnly = !!isLocked;
+        }
+
+        async function fetchCedula() {
+            const persona = personaSelect.value;
+            if (!persona) {
+                setCedula("", false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${lookupUrl}?persona=${encodeURIComponent(persona)}`);
+                if (!response.ok) {
+                    setCedula("", false);
+                    return;
+                }
+                const data = await response.json();
+                if (data.cedula) {
+                    setCedula(data.cedula, true);
+                } else {
+                    setCedula("", false);
+                }
+            } catch (err) {
+                setCedula("", false);
+            }
+        }
+
+        personaSelect.addEventListener("change", fetchCedula);
+        fetchCedula();
+
+    })();
+</script>
+{% endblock %}
