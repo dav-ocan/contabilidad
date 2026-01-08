@@ -15,10 +15,17 @@ DRIVE_FOLDER_ID = env.str("DRIVE_FOLDER_ID", default="")
 SECURITY_CODE = env.str("SECURITY_CODE", default="000000")
 
 ENVIRONMENT = env.str("ENVIRONMENT", default="dev").lower()
-DEBUG = ENVIRONMENT != "prod"
+DEBUG = env.bool("DEBUG", default=ENVIRONMENT != "prod")
 
-ALLOWED_HOSTS = ["*"] if DEBUG else ["localhost", "127.0.0.1"]
-CSRF_TRUSTED_ORIGINS = []
+RENDER_EXTERNAL_HOSTNAME = env.str("RENDER_EXTERNAL_HOSTNAME", default="")
+_default_allowed_hosts = ["*"] if DEBUG else ["localhost", "127.0.0.1"]
+if RENDER_EXTERNAL_HOSTNAME:
+    _default_allowed_hosts.append(RENDER_EXTERNAL_HOSTNAME)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=_default_allowed_hosts)
+
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+if not DEBUG and RENDER_EXTERNAL_HOSTNAME and not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
