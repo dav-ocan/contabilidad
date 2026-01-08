@@ -51,7 +51,7 @@ def _looks_like_path(value: str) -> bool:
         return False
     if value.startswith(("/", "./", "../", "~")):
         return True
-    if "\" in value:
+    if "\\" in value:
         return True
     if len(value) >= 2 and value[1] == ":":
         return True
