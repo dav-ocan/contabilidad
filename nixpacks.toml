@@ -3,7 +3,7 @@ nixPkgs = [
   "gcc",
   "mariadb-connector-c",
   "postgresql_16",
-  "python39"
+  "python311"
 ]
 
 [healthcheck]
