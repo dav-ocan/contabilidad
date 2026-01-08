@@ -1,4 +1,5 @@
-﻿from pathlib import Path
+import os
+from pathlib import Path
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,7 +11,7 @@ if ENV_PATH.exists():
 
 SECRET_KEY = env.str("SECRET_KEY", default="change-me")
 SHEET_PATH = env.str("SHEET_PATH", default="")
-SERVICE = env.str("SERVICE", default="")
+SERVICE = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 DRIVE_FOLDER_ID = env.str("DRIVE_FOLDER_ID", default="")
 SECURITY_CODE = env.str("SECURITY_CODE", default="000000")
 
