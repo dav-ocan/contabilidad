@@ -1,4 +1,4 @@
-﻿{% extends "layout.html" %}
+{% extends "layout.html" %}
 
 {% block content %}
 <div class="content-body">
@@ -79,7 +79,18 @@
 
                 <div class="mb-4 cuota-group" style="display: none;">
                     <label class="form-label">Cuota mensual</label>
-                    <input type="number" name="cuota_mensual" class="form-control cuota-input" min="0" step="0.01">
+                    <input type="text" name="cuota_mensual" class="form-control cuota-input">
+                </div>
+
+                <div class="mb-4 tipo-tarjeta-group" style="display: none;">
+                    <label class="form-label">Tipo de tarjeta <span class="text-danger">*</span></label>
+                    <select name="tipo_tarjeta" class="form-select tipo-tarjeta-select">
+                        <option value="">Seleccione un tipo de tarjeta</option>
+                        <option value="Diners Club">Diners Club</option>
+                        <option value="Visa">Visa</option>
+                        <option value="CPN">CPN</option>
+                        <option value="Pacificard">Pacificard</option>
+                    </select>
                 </div>
 
                 <div class="mb-4">
@@ -126,6 +137,8 @@
             const metodoSelect = entry.querySelector(".metodo-select");
             const cuotaGroup = entry.querySelector(".cuota-group");
             const cuotaInput = entry.querySelector(".cuota-input");
+            const tipoTarjetaGroup = entry.querySelector(".tipo-tarjeta-group");
+            const tipoTarjetaSelect = entry.querySelector(".tipo-tarjeta-select");
 
             function updateCategoria() {
                 const value = categoriaSelect.value;
@@ -151,9 +164,12 @@
                 const isTarjeta = metodoSelect.value === "Tarjeta";
                 cuotaGroup.style.display = isTarjeta ? "block" : "none";
                 cuotaInput.required = isTarjeta;
+                tipoTarjetaGroup.style.display = isTarjeta ? "block" : "none";
+                tipoTarjetaSelect.required = isTarjeta;
 
                 if (!isTarjeta) {
                     cuotaInput.value = "";
+                    tipoTarjetaSelect.value = "";
                 }
             }
 
@@ -197,3 +213,4 @@
     })();
 </script>
 {% endblock %}
+

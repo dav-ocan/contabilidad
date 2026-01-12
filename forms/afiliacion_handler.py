@@ -1,4 +1,4 @@
-﻿import os
+import os
 from typing import Dict, List
 
 from django.conf import settings
@@ -70,6 +70,8 @@ def _build_fila(header: List[str], data: Dict[str, str]) -> List[str]:
             filas.append(data.get("subcategoria", ""))
         elif key in {"METODO_DE_PAGO", "METODO_PAGO", "FORMA_DE_PAGO"}:
             filas.append(data.get("metodo_pago", ""))
+        elif key in {"TIPO_DE_TARJETA", "TIPO_TARJETA"}:
+            filas.append(data.get("tipo_tarjeta", ""))
         elif key in {"CUOTA_MENSUAL", "CUOTA"}:
             filas.append(data.get("cuota_mensual", ""))
         elif key == "METODO_DE_PAGO_CUOTA_MENSUAL":

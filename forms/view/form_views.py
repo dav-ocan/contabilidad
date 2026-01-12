@@ -1,4 +1,4 @@
-﻿from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 import logging
 
 from django.shortcuts import render
@@ -81,6 +81,17 @@ def _format_currency(raw: str) -> str:
     return f"${amount:,.2f}"
 
 
+
+def _format_currency_if_number(raw: str) -> str:
+    if not raw:
+        return ""
+    normalized = _normalize_number(raw)
+    try:
+        amount = Decimal(normalized)
+    except InvalidOperation:
+        return _clean_text(raw)
+    return f"${amount:,.2f}"
+
 def _list_get(values, index) -> str:
     try:
         return values[index]
@@ -102,6 +113,7 @@ def nuevo_afiliado_view(request):
         subcategorias = request.POST.getlist("subcategoria")
         metodos_pago = request.POST.getlist("metodo_pago")
         cuotas_raw = request.POST.getlist("cuota_mensual")
+        tipos_tarjeta = request.POST.getlist("tipo_tarjeta")
         descripciones = request.POST.getlist("descripcion")
         frecuencias = request.POST.getlist("frecuencia")
         comprobantes = request.FILES.getlist("comprobante")
@@ -131,6 +143,7 @@ def nuevo_afiliado_view(request):
             subcategoria = _clean_text(_list_get(subcategorias, idx))
             metodo_pago = _clean_text(_list_get(metodos_pago, idx))
             cuota_raw = _list_get(cuotas_raw, idx).strip()
+            tipo_tarjeta = _clean_text(_list_get(tipos_tarjeta, idx))
             descripcion = _clean_text(_list_get(descripciones, idx))
             frecuencia = _clean_text(_list_get(frecuencias, idx))
             comprobante_file = comprobantes[idx] if idx < len(comprobantes) else None
@@ -144,12 +157,12 @@ def nuevo_afiliado_view(request):
 
             if metodo_pago != "Tarjeta":
                 cuota_raw = ""
+                tipo_tarjeta = ""
 
             try:
                 monto = _format_currency(monto_raw)
-                cuota_mensual = _format_currency(cuota_raw) if cuota_raw else ""
             except ValueError:
-                messages.error(request, f"Monto o cuota mensual tienen un formato invalido. (Gasto #{idx + 1})")
+                messages.error(request, f"Monto tiene un formato invalido. (Gasto #{idx + 1})")
                 return render(
                     request,
                     "afiliado_form.html",
@@ -159,6 +172,8 @@ def nuevo_afiliado_view(request):
                         "personas": PERSONAS,
                     },
                 )
+
+            cuota_mensual = _format_currency_if_number(cuota_raw) if cuota_raw else ""
 
             try:
                 comprobante_link = ""
@@ -187,6 +202,7 @@ def nuevo_afiliado_view(request):
                     "subcategoria": subcategoria_final,
                     "metodo_pago": metodo_pago,
                     "cuota_mensual": cuota_mensual,
+                    "tipo_tarjeta": tipo_tarjeta,
                     "descripcion": descripcion,
                     "frecuencia": frecuencia,
                     "comprobante": comprobante_link,
