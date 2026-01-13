@@ -220,7 +220,7 @@ function syncCuentasToCalculos() {
   var dataRowCount = dataRows.length;
   var dataByMonth = {};
   dataRows.forEach(function(row) {
-    var pick = pickCobro_(
+    var cobros = collectCobros_(
       row[srcIdxTrabajo1],
       row[srcIdxTrabajo2],
       row[srcIdxSalario]
@@ -231,17 +231,32 @@ function syncCuentasToCalculos() {
       var totals = getMonthTotals_(monthTotals, monthKey);
       totals.saldoInicial += parseAmount_(row[srcIdxSaldoInicial]);
       totals.entradaBanco += parseAmount_(row[srcIdxEntradaBanco]);
-      totals.cobrosMonto += parseAmount_(pick.monto);
+
+      var saldoInicialValue = row[srcIdxSaldoInicial] || "";
+      var entradaBancoValue = row[srcIdxEntradaBanco] || "";
 
       if (!dataByMonth[monthKey]) {
         dataByMonth[monthKey] = [];
       }
-      dataByMonth[monthKey].push({
-        saldoInicial: row[srcIdxSaldoInicial] || "",
-        entradaBanco: row[srcIdxEntradaBanco] || "",
-        tipoCobros: pick.tipo,
-        cobrosMonto: pick.monto,
-      });
+
+      if (cobros.length) {
+        cobros.forEach(function(cobro) {
+          totals.cobrosMonto += parseAmount_(cobro.monto);
+          dataByMonth[monthKey].push({
+            saldoInicial: saldoInicialValue,
+            entradaBanco: entradaBancoValue,
+            tipoCobros: cobro.tipo,
+            cobrosMonto: cobro.monto,
+          });
+        });
+      } else {
+        dataByMonth[monthKey].push({
+          saldoInicial: saldoInicialValue,
+          entradaBanco: entradaBancoValue,
+          tipoCobros: "",
+          cobrosMonto: "",
+        });
+      }
     }
   });
 
@@ -556,6 +571,20 @@ function formatAmountNumber_(value) {
   var fixed = absValue.toFixed(2);
   var withCommas = fixed.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return sign + "$" + withCommas;
+}
+
+function collectCobros_(trabajo1, trabajo2, salario) {
+  var cobros = [];
+  if (hasAmount_(trabajo1)) {
+    cobros.push({ tipo: "Trabajo 1", monto: trabajo1 });
+  }
+  if (hasAmount_(trabajo2)) {
+    cobros.push({ tipo: "Trabajo 2", monto: trabajo2 });
+  }
+  if (hasAmount_(salario)) {
+    cobros.push({ tipo: "Salario", monto: salario });
+  }
+  return cobros;
 }
 
 function pickCobro_(trabajo1, trabajo2, salario) {
