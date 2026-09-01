@@ -1,10 +1,26 @@
+import logging
 import os
+import re
 from typing import Dict, List
 
 from django.conf import settings
 from gspread.utils import rowcol_to_a1
 
-from capig_form.services.google_sheets_service import get_google_sheet
+from finanzas_abaoca.services.google_sheets_service import get_google_sheet
+
+logger = logging.getLogger(__name__)
+
+# Columnas que se guardan como numero real (no texto) para que no haya
+# ambiguedad de separador de miles/decimales al leerlas desde Apps Script.
+MONEY_HEADER_KEYS = {
+    "MONTO",
+    "CUOTA_MENSUAL",
+    "SALARIO",
+    "TRABAJO_1",
+    "TRABAJO_2",
+    "SALDO_INICIAL",
+    "ENTRADA_BANCO",
+}
 
 ALT_ID_KEYS = {
     "ID_UNICO",
@@ -93,6 +109,33 @@ def _build_fila(header: List[str], data: Dict[str, str]) -> List[str]:
             filas.append("")
     return filas
 
+
+def _money_columns(header: List[str]) -> List[int]:
+    """Indices (1-based) de columnas monetarias segun el encabezado."""
+    return [idx + 1 for idx, col in enumerate(header) if _normalize(col) in MONEY_HEADER_KEYS]
+
+
+def _row_from_append_response(response) -> "int | None":
+    """Extrae el numero de fila donde gspread.append_row realmente escribio."""
+    try:
+        updated_range = response["updates"]["updatedRange"]
+    except (KeyError, TypeError):
+        return None
+    match = re.search(r"![A-Za-z]+(\d+)", updated_range)
+    return int(match.group(1)) if match else None
+
+
+def _apply_currency_format(sheet, row_number: int, col_indices: List[int]):
+    """Aplica formato de moneda a las celdas indicadas. Es solo estetico:
+    si falla, no afecta el dato ya guardado."""
+    for col_index in col_indices:
+        try:
+            cell = rowcol_to_a1(row_number, col_index)
+            sheet.format(cell, {"numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"}})
+        except Exception:
+            logger.warning("No se pudo aplicar formato de moneda en fila %s col %s.", row_number, col_index)
+
+
 def guardar_nuevo_afiliado_en_google_sheets(data: Dict[str, str]) -> bool:
     sheet_id = os.getenv("SHEET_PATH") or getattr(settings, "SHEET_PATH", "")
     if not sheet_id:
@@ -124,10 +167,11 @@ def guardar_nuevo_afiliado_en_google_sheets(data: Dict[str, str]) -> bool:
 
     fila = _build_fila(header, data)
 
-    next_row = len(sheet.get_all_values()) + 1
-    start_cell = rowcol_to_a1(next_row, 1)
-    end_cell = rowcol_to_a1(next_row, len(header))
-    sheet.update(f"{start_cell}:{end_cell}", [fila])
+    response = sheet.append_row(fila, value_input_option="RAW")
+    row_number = _row_from_append_response(response)
+    money_cols = _money_columns(header)
+    if row_number and money_cols:
+        _apply_currency_format(sheet, row_number, money_cols)
     return True
 
 
@@ -230,8 +274,9 @@ def upsert_salario_data(data: Dict[str, str]) -> bool:
     _set_if_present(row, header_map, ["ENTRADA_BANCO"], data.get("entrada_banco", ""))
     _set_if_present(row, header_map, ["MES"], data.get("mes", ""))
 
-    target_row = len(sheet.get_all_values()) + 1
-    start_cell = rowcol_to_a1(target_row, 1)
-    end_cell = rowcol_to_a1(target_row, len(header))
-    sheet.update(f"{start_cell}:{end_cell}", [row])
+    response = sheet.append_row(row, value_input_option="RAW")
+    row_number = _row_from_append_response(response)
+    money_cols = _money_columns(header)
+    if row_number and money_cols:
+        _apply_currency_format(sheet, row_number, money_cols)
     return True

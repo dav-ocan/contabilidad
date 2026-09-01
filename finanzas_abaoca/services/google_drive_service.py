@@ -10,7 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
 from googleapiclient.errors import HttpError
 
-from capig_form.services.google_credentials import load_service_account_info
+from finanzas_abaoca.services.google_credentials import load_service_account_info
 
 logger = logging.getLogger(__name__)
 

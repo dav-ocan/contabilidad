@@ -1,1 +1,1 @@
-web: gunicorn capig_form.wsgi --workers=3 --timeout=90
+web: gunicorn finanzas_abaoca.wsgi --workers=3 --timeout=90

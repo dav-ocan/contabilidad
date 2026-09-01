@@ -8,7 +8,7 @@ from django.conf import settings
 from google.oauth2.service_account import Credentials
 from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 
-from capig_form.services.google_credentials import load_service_account_info
+from finanzas_abaoca.services.google_credentials import load_service_account_info
 
 try:
     from googleapiclient.errors import HttpError

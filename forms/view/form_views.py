@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods, require_GET
 from django.utils.timezone import now
 import pytz
 
-from capig_form.services.google_drive_service import upload_comprobante_to_drive
+from finanzas_abaoca.services.google_drive_service import upload_comprobante_to_drive
 from forms.afiliacion_handler import (
     guardar_nuevo_afiliado_en_google_sheets,
     upsert_salario_data,
@@ -70,27 +70,18 @@ def _normalize_number(raw: str) -> str:
     return cleaned
 
 
-def _format_currency(raw: str) -> str:
+def _parse_amount(raw: str) -> float:
+    """Valida y convierte un monto a float real (no texto), para que se
+    guarde como numero nativo en el Google Sheet sin ambiguedad de separadores."""
     if not raw:
-        return ""
+        return 0.0
     normalized = _normalize_number(raw)
     try:
         amount = Decimal(normalized)
     except InvalidOperation as exc:
         raise ValueError("Invalid number") from exc
-    return f"${amount:,.2f}"
+    return float(amount)
 
-
-
-def _format_currency_if_number(raw: str) -> str:
-    if not raw:
-        return ""
-    normalized = _normalize_number(raw)
-    try:
-        amount = Decimal(normalized)
-    except InvalidOperation:
-        return _clean_text(raw)
-    return f"${amount:,.2f}"
 
 def _list_get(values, index) -> str:
     try:
@@ -160,7 +151,7 @@ def nuevo_afiliado_view(request):
                 tipo_tarjeta = ""
 
             try:
-                monto = _format_currency(monto_raw)
+                monto = _parse_amount(monto_raw)
             except ValueError:
                 messages.error(request, f"Monto tiene un formato invalido. (Gasto #{idx + 1})")
                 return render(
@@ -173,7 +164,21 @@ def nuevo_afiliado_view(request):
                     },
                 )
 
-            cuota_mensual = _format_currency_if_number(cuota_raw) if cuota_raw else ""
+            cuota_mensual = ""
+            if cuota_raw:
+                try:
+                    cuota_mensual = _parse_amount(cuota_raw)
+                except ValueError:
+                    messages.error(request, f"Cuota mensual tiene un formato invalido. (Gasto #{idx + 1})")
+                    return render(
+                        request,
+                        "afiliado_form.html",
+                        {
+                            "fecha_registro": fecha_registro,
+                            "fecha_gasto": fecha_gasto_default,
+                            "personas": PERSONAS,
+                        },
+                    )
 
             try:
                 comprobante_link = ""
@@ -252,19 +257,19 @@ def actualizar_salario_view(request):
         trabajo_2 = ""
         if trabajo_1_raw:
             try:
-                trabajo_1 = _format_currency(trabajo_1_raw)
+                trabajo_1 = _parse_amount(trabajo_1_raw)
             except ValueError:
                 messages.error(request, "Trabajo 1 tiene un formato invalido.")
                 return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})
         if trabajo_2_raw:
             try:
-                trabajo_2 = _format_currency(trabajo_2_raw)
+                trabajo_2 = _parse_amount(trabajo_2_raw)
             except ValueError:
                 messages.error(request, "Trabajo 2 tiene un formato invalido.")
                 return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})
 
         try:
-            salario = _format_currency(salario_raw)
+            salario = _parse_amount(salario_raw)
         except ValueError:
             messages.error(request, "Salario tiene un formato invalido.")
             return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})
@@ -272,7 +277,7 @@ def actualizar_salario_view(request):
         saldo_inicial = ""
         if saldo_inicial_raw:
             try:
-                saldo_inicial = _format_currency(saldo_inicial_raw)
+                saldo_inicial = _parse_amount(saldo_inicial_raw)
             except ValueError:
                 messages.error(request, "Saldo inicial tiene un formato invalido.")
                 return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})
@@ -280,7 +285,7 @@ def actualizar_salario_view(request):
         entrada_banco = ""
         if entrada_banco_raw:
             try:
-                entrada_banco = _format_currency(entrada_banco_raw)
+                entrada_banco = _parse_amount(entrada_banco_raw)
             except ValueError:
                 messages.error(request, "Entrada banco tiene un formato invalido.")
                 return render(request, "salario_form.html", {"personas": PERSONAS, "meses": MESES})

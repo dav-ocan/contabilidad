@@ -1,9 +1,18 @@
-﻿/**
+# calculo.js — Apps Script de la hoja "calculos"
+
+Este script **no vive en este repo** (Django no lo ejecuta) — vive dentro del Google Sheet "DESARROLLO GASTOS", en Extensiones → Apps Script. Este `.md` es solo una copia de referencia para verlo comodo en VS Code; la version que realmente corre es la que esta pegada en el editor de Apps Script del Sheet.
+
+Sincroniza `cuentas` + `Data` hacia `calculos` y calcula Saldo final / Diferencia por mes. Se dispara cada 5 min via trigger (`crearTriggerSyncCalculos`), o manualmente activando el checkbox en `calculos!M2`.
+
+Ultima actualizacion: 2026-09-02 (dedup de "Saldo inicial"/"Entrada banco" por mes, y de "Trabajo 1"/"Trabajo 2"/"Salario" por persona+mes — ver `PROYECTO.md` para el detalle de que se corrigio y por que).
+
+```javascript
+/**
  * Sincroniza columnas desde "cuentas" hacia "calculos".
  * Origen: cuentas -> Categoria de gasto, Subcategoria, Monto, Fecha de gasto
  *         Data -> Saldo inicial, Entrada banco, Salario, Trabajo 1, Trabajo 2
  * Destino: Categoria de gasto, Subcategoria, Monto categoria,
- *          Fecha de gasto, Mes, A\u00f1o,
+ *          Fecha de gasto, Mes, Año,
  *          Saldo inicial, Entrada banco, Tipo Cobros, Cobros monto
  *          Saldo final y Diferencia (totales por mes)
  */
@@ -29,12 +38,12 @@ function syncCuentasToCalculos() {
 
   var srcHeaders = cuentasData[0];
   var srcIdxCategoria = findHeaderIndex_(srcHeaders, [
-    "Categor\u00eda de gasto",
+    "Categoría de gasto",
     "Categoria de gasto",
     "Categoria gasto",
   ]);
   var srcIdxSubcategoria = findHeaderIndex_(srcHeaders, [
-    "Subcategor\u00eda",
+    "Subcategoría",
     "Subcategoria",
   ]);
   var srcIdxMonto = findHeaderIndex_(srcHeaders, ["Monto"]);
@@ -45,10 +54,10 @@ function syncCuentasToCalculos() {
   ]);
 
   if (srcIdxCategoria === -1) {
-    throw new Error("Falta encabezado 'Categor\u00eda de gasto' en 'cuentas'.");
+    throw new Error("Falta encabezado 'Categoría de gasto' en 'cuentas'.");
   }
   if (srcIdxSubcategoria === -1) {
-    throw new Error("Falta encabezado 'Subcategor\u00eda' en 'cuentas'.");
+    throw new Error("Falta encabezado 'Subcategoría' en 'cuentas'.");
   }
   if (srcIdxMonto === -1) {
     throw new Error("Falta encabezado 'Monto' en 'cuentas'.");
@@ -112,10 +121,10 @@ function syncCuentasToCalculos() {
   var headerRow = getHeaderRow_(dst);
   var updated = false;
 
-  var destCategoria = ensureHeader_(headerRow, "Categor\u00eda de gasto");
+  var destCategoria = ensureHeader_(headerRow, "Categoría de gasto");
   updated = updated || destCategoria.added;
 
-  var destSubcategoria = ensureHeader_(headerRow, "Subcategor\u00eda");
+  var destSubcategoria = ensureHeader_(headerRow, "Subcategoría");
   updated = updated || destSubcategoria.added;
 
   var destMonto = ensureHeaderFromCandidates_(headerRow, [
@@ -135,10 +144,10 @@ function syncCuentasToCalculos() {
   updated = updated || destMes.added;
 
   var destAno = ensureHeaderFromCandidates_(headerRow, [
-    "A\u00f1o",
+    "Año",
     "Ano",
     "ANO",
-  ], "A\u00f1o");
+  ], "Año");
   updated = updated || destAno.added;
 
   var destSaldoInicial = ensureHeaderFromCandidates_(headerRow, [
@@ -403,12 +412,15 @@ function crearTriggerSyncCalculos() {
 
 /* Helpers */
 
+// Rango Unicode de marcas diacriticas combinables (para quitar acentos tras normalize("NFD")).
+var COMBINING_MARKS_REGEX = new RegExp("[" + String.fromCharCode(0x0300) + "-" + String.fromCharCode(0x036f) + "]", "g");
+
 function normalizeHeader_(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(COMBINING_MARKS_REGEX, "")
     .replace(/\s+/g, " ");
 }
 
@@ -648,3 +660,4 @@ function writeColumn_(sheet, colIndex, values, rowCount) {
     sheet.getRange(2, colIndex, values.length, 1).setValues(values);
   }
 }
+```

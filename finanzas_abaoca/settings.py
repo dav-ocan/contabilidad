@@ -49,7 +49,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "capig_form.urls"
+ROOT_URLCONF = "finanzas_abaoca.urls"
 
 TEMPLATES = [
     {
@@ -67,7 +67,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "capig_form.wsgi.application"
+WSGI_APPLICATION = "finanzas_abaoca.wsgi.application"
 
 DATABASES = {
     "default": {
