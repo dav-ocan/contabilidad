@@ -136,12 +136,42 @@ def _apply_currency_format(sheet, row_number: int, col_indices: List[int]):
             logger.warning("No se pudo aplicar formato de moneda en fila %s col %s.", row_number, col_index)
 
 
+def _last_data_row(sheet, key_col: int = 1, header_row: int = 1) -> int:
+    """Detecta la ultima fila con datos reales leyendo la primera columna
+    (siempre poblada en una fila real: 'Fecha del registro' en 'cuentas',
+    'Cedula' en 'Data'), en vez de confiar en el tamaño del grid de la hoja."""
+    values = sheet.col_values(key_col)
+    last_row = header_row
+    for idx, value in enumerate(values, start=1):
+        if str(value).strip():
+            last_row = idx
+    return last_row
+
+
+def _trim_grid_to_data(sheet):
+    """gspread's append_row() siempre agrega la fila nueva en (grid_row_count + 1),
+    no despues de la ultima fila con datos reales. Si el grid de la hoja quedo mas
+    grande que los datos (ej. alguien inserto/pego un rango grande de filas en
+    Google Sheets y lo borro despues, lo cual no reduce el grid), append_row deja
+    un salto enorme entre los datos reales y la fila nueva. Se recorta el grid al
+    tamaño real de los datos antes de cada guardado para que esto no vuelva a
+    pasar sin importar cuanto haya crecido el grid."""
+    try:
+        last_row = _last_data_row(sheet)
+        target_rows = max(last_row, 2)
+        if sheet.row_count > target_rows:
+            sheet.resize(rows=target_rows)
+    except Exception:
+        logger.warning("No se pudo recortar el grid de '%s' antes de guardar.", sheet.title)
+
+
 def guardar_nuevo_afiliado_en_google_sheets(data: Dict[str, str]) -> bool:
     sheet_id = os.getenv("SHEET_PATH") or getattr(settings, "SHEET_PATH", "")
     if not sheet_id:
         raise RuntimeError("SHEET_PATH is not configured.")
 
     sheet = get_google_sheet(sheet_id, "cuentas")
+    _trim_grid_to_data(sheet)
 
     header_row = 1
     data_start_row = header_row + 1
@@ -236,6 +266,7 @@ def upsert_salario_data(data: Dict[str, str]) -> bool:
         raise RuntimeError("SHEET_PATH is not configured.")
 
     sheet = get_google_sheet(sheet_id, "Data")
+    _trim_grid_to_data(sheet)
     header_row = 1
     header = sheet.row_values(header_row)
     if not header:
