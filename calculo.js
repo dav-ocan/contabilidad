@@ -9,7 +9,23 @@
  *                            repetia el mismo total en cada fila de gasto)
  *
  * Fila 1 = titulo de cada bloque. Fila 2 = encabezados. Datos desde fila 3.
- * Checkbox de sync manual: celda V2 (antes era M2).
+ * Checkbox en V2: YA NO controla si se sincroniza o no (ver actualizacion
+ * 2026-09-02) - ahora es solo un boton de "sincronizar ya".
+ *
+ * Actualizacion 2026-09-02: el sync automatico (trigger de tiempo, cada
+ * minuto) ya NO depende del checkbox - antes, como el script apagaba el
+ * checkbox al terminar cada corrida exitosa (para dar feedback visual),
+ * el siguiente trigger de tiempo se encontraba el checkbox en FALSE y se
+ * saltaba la sincronizacion, dejando "calculos" desactualizado hasta que
+ * alguien lo marcara a mano de nuevo. Ahora syncCuentasToCalculos() SIEMPRE
+ * sincroniza cuando se le llama (por el trigger de tiempo o manualmente);
+ * el checkbox se mantiene solo como atajo para forzar un sync inmediato en
+ * vez de esperar hasta el proximo minuto (ver onEdit(e) mas abajo - un
+ * "simple trigger" que Apps Script activa solo con la marca de un checkbox,
+ * no requiere instalarlo aparte). Los gastos que llegan por la API de
+ * Django (no por edicion manual en el Sheet) NO disparan onEdit, por eso
+ * el trigger de tiempo sigue siendo necesario para que la sincronizacion
+ * sea automatica de verdad - ver crearTriggerSyncCalculos().
  *
  * Actualizacion 2026-09-01: los totales ahora agrupan por mes+año real (no
  * solo por nombre de mes) - ver la nota mas abajo. El layout de columnas
@@ -74,9 +90,6 @@ function syncCuentasToCalculos() {
   if (!src) throw new Error("No existe la hoja 'cuentas'.");
   if (!dataSheet) throw new Error("No existe la hoja 'Data'.");
   if (!dst) throw new Error("No existe la hoja 'calculos'.");
-
-  var allowSync = readCheckboxFlag_(dst, CHECKBOX_CELL);
-  if (allowSync === false) return;
 
   var success = false;
   try {
@@ -316,7 +329,14 @@ function syncCuentasToCalculos() {
   }
 }
 
-/** Opcional: crea un trigger cada 5 minutos. */
+/**
+ * Ejecutar esta funcion UNA VEZ a mano (boton "Ejecutar" en el editor de
+ * Apps Script) para instalar el trigger automatico. Solo tener la funcion
+ * escrita no crea el trigger - hay que correrla explicitamente, y aceptar
+ * los permisos que pida Google la primera vez. Se puede volver a correr
+ * sin problema (borra el trigger viejo antes de crear el nuevo, para
+ * nunca dejar dos corriendo a la vez).
+ */
 function crearTriggerSyncCalculos() {
   var triggers = ScriptApp.getProjectTriggers().filter(function(t) {
     return t.getHandlerFunction() === "syncCuentasToCalculos";
@@ -327,8 +347,25 @@ function crearTriggerSyncCalculos() {
 
   ScriptApp.newTrigger("syncCuentasToCalculos")
     .timeBased()
-    .everyMinutes(5)
+    .everyMinutes(1)
     .create();
+}
+
+/**
+ * "Simple trigger" - Apps Script lo activa solo con que exista esta funcion
+ * llamada exactamente "onEdit", sin necesidad de instalarlo en el icono del
+ * reloj. Solo reacciona a ediciones manuales hechas por una persona en la
+ * interfaz del Sheet (marcar el checkbox) - las filas que llegan por la API
+ * de Django NO pasan por aqui, para eso esta el trigger de tiempo de
+ * crearTriggerSyncCalculos(). Sirve como boton de "sincronizar ya".
+ */
+function onEdit(e) {
+  if (!e || !e.range) return;
+  var sheet = e.range.getSheet();
+  if (sheet.getName() !== "calculos") return;
+  if (e.range.getA1Notation() !== CHECKBOX_CELL) return;
+  if (e.range.getValue() !== true) return;
+  syncCuentasToCalculos();
 }
 
 /* Helpers de layout (bloques de calculos) */
@@ -403,15 +440,6 @@ function findHeaderIndex_(headers, candidates) {
     if (idx !== -1) return idx;
   }
   return -1;
-}
-
-function readCheckboxFlag_(sheet, a1) {
-  var value = sheet.getRange(a1).getValue();
-  if (value === true || value === false) return value;
-  var text = String(value || "").trim().toLowerCase();
-  if (text === "false" || text === "falso" || text === "no") return false;
-  if (text === "true" || text === "verdadero" || text === "si") return true;
-  return true;
 }
 
 function monthKeyFromValue_(value) {
